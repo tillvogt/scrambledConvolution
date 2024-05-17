@@ -22,3 +22,6 @@ classifiers = [
     "Environment :: Console",
     "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/scrambledConv/"]
