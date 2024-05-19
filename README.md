@@ -1,2 +1,24 @@
-# scrambledConvolution
-Framework for modifying kernel Operations in Convolutional Neural Networks.
+<p align="center">
+  <img width="350" src="./logo.png">
+</p>
+<h2>
+  Motivation:
+</h2>
+<p>
+  It is well known that the structure of Convolutional Neural Networks (CNNs) is strongly inspired by observations of the brain's visual cortex. Various studies have provided evidence that layer structures and cross-correlation are effective implementations for modeling biological image processing. Over time, numerous experiments have been conducted to find the optimal network structure for different tasks. 
+</p>
+<p>
+  This framework allows for the variation of network composition at all levels. You can modify hyperparameters and structure, as well as the mathematical foundations. The focus is on the ability to vary kernel shapes and locations in subsequent layers.
+</p>
+
+<h2>
+Installation:
+</h2>
+<p>
+  This Framework is completly written on Python. For installation i recommend istalling with pip in the following way:
+</p>
+
+<pre><code>
+pip install scrambledConvolution@git+https://github.com/tillvogt/scrambledConvolution.git
+</code></pre>
+
