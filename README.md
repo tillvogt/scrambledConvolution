@@ -15,7 +15,7 @@
 Installation:
 </h2>
 <p>
-  This Framework is completly written on Python. For installation i recommend istalling with pip in the following way:
+  This Framework is completly written on Python. For installation I recommend pip with following command:
 </p>
 
 <pre><code>
