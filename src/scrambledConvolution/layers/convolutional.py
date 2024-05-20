@@ -42,7 +42,7 @@ def retina_mix(corrmat, corrmat_shape, mix_ratio):
     arbitrary places.
     
     Args:
-    corrmat (numpy.ndarray): Correaltionmatrix, in most cases, the originally by corrmatrix() generated
+    corrmat (numpy.ndarray): Correaltionmatrix, usually by corrmatrix() generated.
     corrmat_shape (list(int)): the shape of the correlationmatrix.
     mix_ratio (float): Ratio for tuning the occurence of reassigning the correlation results.
     
@@ -64,7 +64,19 @@ def retina_mix(corrmat, corrmat_shape, mix_ratio):
 
 
 def kernel_mix(corrmat, corrmat_shape, kernel_size, mix_ratio):
-    # Perform element mixing based on the mix ratio and kernel size
+    """
+    Mixes the passed correlation matrix in a manner, that in some cross-correlation operations the kernelshape is varied. 
+    
+    Args:
+    corrmat (numpy.ndarray): Correaltionmatrix, usually by corrmatrix() generated.
+    corrmat_shape (list(int)): the shape of the correlationmatrix.
+    kernel_size (int): side length of the kernel in pixel.
+    mix_ratio (float): Ratio for tuning the occurence of reassigning the correlation results.
+    
+    Returns:
+    corrmat (numpy.ndarray): restructured correlation matrix with the same dimensions as before
+    corrmat_shape (list(int)): The shape of the 4D correlation matrix. 
+    """
     for _ in range(int(mix_ratio*corrmat_shape[0]*corrmat_shape[1])):
         rdm_frame = np.random.randint(low=0, high=corrmat_shape[0], size=[2])
         rdm_pixel = np.random.randint(low=0, high=corrmat_shape[2], size=[2])
@@ -77,10 +89,21 @@ def kernel_mix(corrmat, corrmat_shape, kernel_size, mix_ratio):
         
     return corrmat, corrmat_shape
 
-# Numba JIT compiled function for cross-correlation operation
 @njit
 def cross_correlation(input, corrmat, corrmat_shape, kernel, kernel_size):
-    # Reshape the kernel for efficient computation
+    """
+    performs cross_correlation using an imput and the correlationmatrix with the corresponding weights.
+    
+    Args:
+    input (np.ndarray): 2D input array with Pixelvalues.
+    corrmat (np.ndarray): the 4D correlationmatrix as "Linear equation system".
+    corrmat_shape (list[int]): The shape of the 4D correlation matrix. 
+    kernel (np.ndarray): 2D array with the kernelvalues (weights) in it.
+    kernel_size (int): side length of the kernel in pixel.
+    
+    Returns:
+    output (np.ndarray): 2D array as result of applied Cross-Correlation
+    """
     kernel = kernel.reshape(kernel_size**2)
     Y, X, y, x = corrmat_shape
     output = np.zeros((Y,X))
@@ -95,9 +118,21 @@ def cross_correlation(input, corrmat, corrmat_shape, kernel, kernel_size):
                         
     return output
 
-# Numba JIT compiled function for computing the gradient of the kernel
 @njit
 def k_grad_operation(input, output_gradient, corrmat, corrmat_shape, kernel_size):
+    """
+    Function for calculating the kernelgradient during Backwards process.
+    Args:
+    input (np.ndarray): 2D input array with Pixelvalues.
+    output_gradient (np.ndarray): 2D shaped gradient, returned by previous Layer during backpropagation. 
+        Dimensions are equal to the outputdimensions of the forewardpass.
+    corrmat (np.ndarray): the 4D correlationmatrix as "Linear equation system".
+    corrmat_shape (list[int]): The shape of the 4D correlation matrix. 
+    kernel_size (int): side length of the kernel in pixel.
+    
+    Returns:
+    kernel_gradient (np.ndarray): Returns gradient with Dimensions of the kernel.
+    """
     Y, X, y, x = corrmat_shape
     kernel_gradient  = np.zeros(kernel_size**2)
     # Compute the gradient of the kernel
@@ -116,6 +151,13 @@ def k_grad_operation(input, output_gradient, corrmat, corrmat_shape, kernel_size
 # Numba JIT compiled function for computing the gradient of the input
 @njit
 def x_grad_operation(output_gradient, corrmat, corrmat_shape, kernel):
+    """
+    output_gradient (np.ndarray): 2D shaped gradient, returned by previous Layer during backpropagation. 
+        Dimensions are equal to the outputdimensions of the forewardpass.
+    corrmat (np.ndarray): the 4D correlationmatrix as "Linear equation system".
+    corrmat_shape (list[int]): The shape of the 4D correlation matrix. 
+    kernel (np.ndarray): 2D array with the kernelvalues (weights) in it.
+    """
     Y,X,y,x = corrmat_shape
     input_grad = np.zeros((y,x))
     kernel = kernel.reshape(kernel.size)
@@ -132,7 +174,20 @@ def x_grad_operation(output_gradient, corrmat, corrmat_shape, kernel):
 
 # Convolutional layer class that inherits from the Layer class
 class Convolutional(Layer):
+    """
+    Convolutional Layer to perform cross-correlation on given input and provide backward pass functionality.
+    """
     def __init__(self, input_shape, kernel_size, depth, type = "regular", mix_factor=0):
+        """
+        Initialize the convolutional layer.
+
+        Args:
+            input_shape (tuple): Shape of the input as (input_depth, input_height, input_width).
+            kernel_size (int): Size of the convolution kernel.
+            depth (int): Number of output feature maps.
+            type (str, optional): Type of mixing to apply to the correlation matrix. Options are "regular", "kernelMix", "retinaMix". Default is "regular".
+            mix_factor (float, optional): Ratio for mixing elements in the correlation matrix. Default is 0.
+        """
         # Initialize the convolutional layer with given parameters
         input_depth, input_height, input_width = input_shape
         self.kernel_size = kernel_size
@@ -153,7 +208,15 @@ class Convolutional(Layer):
                 self.corr_matrix, self.corr_matrix_shape = retina_mix(*corrmatrix(input_height, input_width, kernel_size), mix_factor)
                 
     def forward(self, input):
-        # Forward pass of the convolutional layer
+        """
+        Perform the forward pass of the convolutional layer.
+
+        Args:
+            input (numpy.ndarray): Input data of shape (input_depth, input_height, input_width).
+
+        Returns:
+            numpy.ndarray: Output data after applying convolution, of shape (depth, output_height, output_width).
+        """
         self.input = input
         self.output = np.copy(self.biases)
         for i in range(self.depth):
@@ -162,7 +225,17 @@ class Convolutional(Layer):
         return self.output
     
     def backward(self, output_gradient):
-        # Backward pass of the convolutional layer
+        """
+        Perform the backward pass of the convolutional layer.
+
+        Args:
+            output_gradient (numpy.ndarray): Gradient of the loss with respect to the output, of shape (depth, output_height, output_width).
+
+        Returns:
+            tuple: Gradients with respect to the input and kernels.
+                - input_gradient (numpy.ndarray): Gradient with respect to the input, of shape (input_depth, input_height, input_width).
+                - kernels_gradient (numpy.ndarray): Gradient with respect to the kernels, of shape (depth, input_depth, kernel_size, kernel_size).
+        """
         kernels_gradient = np.zeros(self.kernels_shape)
         input_gradient = np.zeros(self.input_shape)
         for i in range(self.depth):
@@ -173,6 +246,12 @@ class Convolutional(Layer):
         return input_gradient, kernels_gradient
     
     def learning(self, weight_grad, bias_grad):
-        # Update the weights and biases of the convolutional layer
+        """
+        Update the weights and biases of the convolutional layer.
+
+        Args:
+            weight_grad (numpy.ndarray): Gradient of the loss with respect to the weights.
+            bias_grad (numpy.ndarray): Gradient of the loss with respect to the biases.
+        """
         self.kernels -= weight_grad
         self.biases -= bias_grad
