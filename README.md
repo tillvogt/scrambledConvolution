@@ -22,3 +22,9 @@ Installation:
 pip install scrambledConvolution@git+https://github.com/tillvogt/scrambledConvolution.git
 </code></pre>
 
+<h2>
+Jupyter Notebook:
+</h2>
+<p>
+  For testing with a prewritten Democase I provided the scrambledConvolution_demo.ipynb. Feel free to play around with it. Especially the particularities of the Convolutional layer are demonstrated.
+</p>
