@@ -28,3 +28,6 @@ Jupyter Notebook:
 <p>
   For testing with a prewritten Democase I provided the scrambledConvolution_demo.ipynb. Feel free to play around with it. Especially the particularities of the Convolutional layer are demonstrated.
 </p>
+<a target="_blank" href="https://colab.research.google.com/github/tillvogt/scrambledConvolution/blob/main/scrambledConvolution_demo.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
