@@ -1,6 +1,7 @@
 import numpy as np
 from numba import njit
 from .layer import Layer
+import time
 
 
 """
@@ -8,6 +9,36 @@ In order to ensure the accurate implementation of Backpropagation despite variat
 all coefficients are stored in the 'correlation matrix'. 
 Consequently, each cross-correlation represents a system of linear equations with numerous terms that are equal to zero.
 """
+
+def max_gauss(variance):
+    """
+    Returns a grid of positions and a grid of proportions for a 2D gaussian distribution.
+    As norm for the Distance we use max_norm.
+    Args:
+        variance (float): Variance of the gaussian distribution.
+    Returns:
+        pos_grid (np.ndarray): Grid of positions.
+        prob_grid (np.ndarray): Grid of proportions.    
+    
+    """
+    
+    matrix_size = int(6*variance)
+    if matrix_size % 2 == 0: matrix_size += 1
+    pos_grid = np.empty((matrix_size, matrix_size), dtype=object)
+    prop_grid = np.zeros((matrix_size, matrix_size))
+    middle = (matrix_size//2, matrix_size//2)
+    
+    
+    
+    for Y in range(matrix_size):
+        for X in range(matrix_size):
+            pos_grid[Y, X] = (-middle[0]+Y, -middle[1]+X)
+            prop_grid[Y, X] = np.exp(-((np.max(np.abs(pos_grid[Y,X])**2))/(2*variance**2)))
+    
+    prop_grid = prop_grid/np.sum(prop_grid)
+    
+    return pos_grid, prop_grid
+
 
 def corrmatrix(input_height, input_width, kernel_size):
     """
@@ -52,14 +83,15 @@ def retina_mix(corrmat, corrmat_shape, mix_ratio):
     """
     
     Y,X,_y,_x = corrmat_shape
+    num_swaps = int(mix_ratio*Y*X)
     
-    for _ in range(int(mix_ratio*Y*X)):
+    for _ in range(num_swaps):
         rdm_y = np.random.randint(low=0, high=Y, size=[2])
         rdm_x = np.random.randint(low=0, high=X, size=[2])
-        buffer = corrmat[rdm_y[0]][rdm_x[0]]
+        buffer = corrmat[rdm_y[0]][rdm_x[0]].copy()
         corrmat[rdm_y[0]][rdm_x[0]] = corrmat[rdm_y[1]][rdm_x[1]]
         corrmat[rdm_y[1]][rdm_x[1]] = buffer
-        
+    
     return corrmat, corrmat_shape
 
 
@@ -83,11 +115,47 @@ def kernel_mix(corrmat, corrmat_shape, kernel_size, mix_ratio):
         rdm_kernel = np.random.randint(low=0, high=(kernel_size**2))
         y = rdm_kernel//kernel_size
         x = rdm_kernel%kernel_size
-        buffer = corrmat[rdm_frame[0]][rdm_frame[1]][rdm_pixel[0]][rdm_pixel[1]]
+        buffer = corrmat[rdm_frame[0]][rdm_frame[1]][rdm_pixel[0]][rdm_pixel[1]].copy()
         corrmat[rdm_frame[0]][rdm_frame[1]][rdm_pixel[0]][rdm_pixel[1]] = corrmat[rdm_frame[0]][rdm_frame[1]][rdm_frame[0]+y][rdm_frame[1]+x]
         corrmat[rdm_frame[0]][rdm_frame[1]][rdm_frame[0]+y][rdm_frame[1]+x] = buffer
         
     return corrmat, corrmat_shape
+
+
+def concMix(corrmat, corrmat_shape, kernel_size, variance):
+    """
+    Applies a convolution-like mixing operation on a correlation matrix, introducing randomness based on a Gaussian distribution.
+    
+    This function modifies the input correlation matrix by randomly selecting pixels within its bounds and swapping them with other pixels determined by a random kernel size and position. The operation is repeated according to the mix ratio parameter, allowing for a controlled degree of randomness in the output.
+    
+    Args:
+    corrmat (numpy.ndarray): Input correlation matrix, typically generated using a correlation matrix generation method.
+    corrmat_shape (tuple[int]): Shape of the correlation matrix, representing its dimensions.
+    kernel_size (int): Size of the kernel used for determining the range of pixels to consider for swapping.
+    mix_ratio (float): Fraction of the total possible swaps that should be performed, influencing the level of randomness introduced.
+    variance (float): Standard deviation of the Gaussian distribution used to generate random offsets for pixel selection.
+    
+    Returns:
+    tuple[numpy.ndarray, tuple[int]]: A tuple containing the modified correlation matrix and its shape, reflecting the applied transformations.
+    """
+    for Y in range(corrmat_shape[0]):
+        for X in range(corrmat_shape[1]):
+            for i in range(kernel_size**2):
+                pos_grid, prob_grid = max_gauss(variance)
+                while True:
+                    try:
+                        rdm_pixel = np.random.choice(pos_grid.flatten(), p=prob_grid.flatten())
+                        y = i//kernel_size + Y
+                        x = i%kernel_size + X
+                        buffer = corrmat[Y][X][y+rdm_pixel[0]][x+rdm_pixel[1]].copy()
+                        corrmat[Y][X][y+rdm_pixel[0]][x+rdm_pixel[1]] = corrmat[Y][X][y][x]
+                        corrmat[Y][X][y][x] = buffer
+                        break
+                    except:
+                        continue
+                    
+    return corrmat, corrmat_shape
+
 
 @njit
 def cross_correlation(input, corrmat, corrmat_shape, kernel, kernel_size):
@@ -115,8 +183,8 @@ def cross_correlation(input, corrmat, corrmat_shape, kernel, kernel_size):
                     val = corrmat[Y_,X_,y_,x_]
                     if(val!= 0):
                         output[Y_, X_] += kernel[val-1]*input[y_][x_]
-                        
     return output
+
 
 @njit
 def k_grad_operation(input, output_gradient, corrmat, corrmat_shape, kernel_size):
@@ -134,7 +202,7 @@ def k_grad_operation(input, output_gradient, corrmat, corrmat_shape, kernel_size
     kernel_gradient (np.ndarray): Returns gradient with Dimensions of the kernel.
     """
     Y, X, y, x = corrmat_shape
-    kernel_gradient  = np.zeros(kernel_size**2)
+    kernel_gradient = np.zeros(kernel_size**2)
     # Compute the gradient of the kernel
     for Y_ in range(Y):
         for X_ in range(X):
@@ -147,6 +215,7 @@ def k_grad_operation(input, output_gradient, corrmat, corrmat_shape, kernel_size
     kernel_gradient = kernel_gradient.reshape((kernel_size, kernel_size))
     
     return kernel_gradient
+
 
 # Numba JIT compiled function for computing the gradient of the input
 @njit
@@ -199,6 +268,9 @@ class Convolutional(Layer):
         self.kernels = np.random.randn(*self.kernels_shape)
         self.biases = np.random.randn(*self.output_shape)   
         # Initialize the correlation matrix based on the type of mixing
+        types = ["regular", "kernelMix", "retinaMix", "concMix"]
+        if type not in types:
+            raise ValueError(f"{type} is not a valid type. Choose one of: {types}")
         match type:
             case "regular":
                 self.corr_matrix, self.corr_matrix_shape = corrmatrix(input_height, input_width, kernel_size)
@@ -206,7 +278,9 @@ class Convolutional(Layer):
                 self.corr_matrix, self.corr_matrix_shape = kernel_mix(*corrmatrix(input_height, input_width, kernel_size), self.kernel_size, mix_factor)
             case "retinaMix":
                 self.corr_matrix, self.corr_matrix_shape = retina_mix(*corrmatrix(input_height, input_width, kernel_size), mix_factor)
-                
+            case "concMix":
+                self.corr_matrix, self.corr_matrix_shape = concMix(*corrmatrix(input_height, input_width, kernel_size), self.kernel_size, mix_factor)    
+            
     def forward(self, input):
         """
         Perform the forward pass of the convolutional layer.

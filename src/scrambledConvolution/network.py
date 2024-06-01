@@ -1,11 +1,9 @@
 import timeit
+import pickle
 import numpy as np
 
-from .layers import Convolutional
+from .layers import Convolutional, Dense
 
-import timeit
-import numpy as np
-from .layers import Convolutional
 
 def timer_decorator(func):
     """
@@ -24,6 +22,20 @@ def timer_decorator(func):
         print(f"Time taken: {end_time - start_time}")
         return result
     return wrapper
+
+def weight_returner(layer):
+    if isinstance(layer, Convolutional): return layer.kernels
+    if isinstance(layer, Dense): return layer.weights
+    return None
+
+def bias_returner(layer):
+    if isinstance(layer, Convolutional): return layer.biases
+    if isinstance(layer, Dense): return layer.bias
+    return None
+
+def corr_matrix_returner(layer):
+    if isinstance(layer, Convolutional): return layer.corr_matrix
+    return None
 
 def predict(network, input):
     """
@@ -123,7 +135,7 @@ def batch_train(network, batched_data, batch_size, loss, loss_prime, learning_ra
 @timer_decorator
 def train(mixing_factor, network, loss, loss_prime, x_train, y_train, x_test, y_test, 
           epochs, learning_rate=0.1, batch_size=4, friction=0.9,
-          verbose=True, weight_saving=True):
+          verbose=True, weight_saving=True, saving_path="./"):
     """
     Train a neural network with the given parameters and data.
 
@@ -147,7 +159,7 @@ def train(mixing_factor, network, loss, loss_prime, x_train, y_train, x_test, y_
         tuple: Error statistics and accuracy statistics. If `weight_saving` is True, also returns the weights of convolutional layers.
     """
     
-    err_stats, acc_stats = [], []
+    train_err_stats, test_err_stats, acc_stats = [], [], []
     batched_x, batched_y = data_batcher(x_train, y_train, batch_size)
     
     for e in range(epochs):
@@ -177,15 +189,30 @@ def train(mixing_factor, network, loss, loss_prime, x_train, y_train, x_test, y_
         if verbose:
             print(f"{mixing_factor:.2f}, {e + 1}/{epochs}, train_error={error:.4f}, test_error={test_error:.4f}, accuracy={accuracy:2n}%")
                 
-        err_stats.append(error)
-        acc_stats.append(test_error)
+        train_err_stats.append(error)
+        test_err_stats.append(test_error)
+        acc_stats.append(accuracy)
             
     if weight_saving == False:    
-        return err_stats, acc_stats
+        return train_err_stats, test_err_stats, acc_stats
     
-    weights = []
-    for x in network:
-        if isinstance(x, Convolutional) and weight_saving:
-            weights.append([x.kernels, x.biases])            
-
-    return err_stats, acc_stats, weights
+    ####Weight/Bias-saver
+    weights = ()
+    biases = ()
+    corr_matrices = ()
+    
+    for layer in network:
+        weights = weights + (weight_returner(layer),)
+        biases = biases + (bias_returner(layer),)
+        corr_matrices = corr_matrices + (corr_matrix_returner(layer),)
+        
+    data = {
+        "weights": weights,
+        "biases": biases,
+        "corr_matrices": corr_matrices
+    }
+    
+    with open(saving_path + f"properties_{mixing_factor}", "wb") as file:
+        pickle.dump(data, file)
+    
+    return train_err_stats, test_err_stats, acc_stats
