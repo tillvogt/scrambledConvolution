@@ -34,10 +34,10 @@ Variation Examples:
   
 <h2>
 <h3>
-  "retinaMix" cross-correlation:
+  "concMix" cross-correlation:
 </h3>
 <p align="center">
-  <img width="1000" src="./cross_corr_nonret.gif">
+  <img width="1000" src="./cross_corr_concmix.gif">
 </p>
 <h2>
 
