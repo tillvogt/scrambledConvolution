@@ -19,14 +19,28 @@ Variation Examples:
 <p align="center">
   <img width="1000" src="./cross_corr.gif">
 </p>
+<h3>
+  "retinaMix" cross-correlation:
+</h3>
+<p align="center">
+  <img width="1000" src="./cross_corr_nonret.gif">
+</p>
+<h3>
+  "kernelMix" cross-correlation:
+</h3>
+<p align="center">
+  <img width="1000" src="./cross_corr_kernel.gif">
+</p>
+  
 <h2>
-  <h3>
+<h3>
   "retinaMix" cross-correlation:
 </h3>
 <p align="center">
   <img width="1000" src="./cross_corr_nonret.gif">
 </p>
 <h2>
+
 Installation:
 </h2>
 <p>
