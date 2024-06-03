@@ -10,8 +10,21 @@
 <p>
   This framework allows for the variation of network composition at all levels. You can modify hyperparameters and structure, as well as the mathematical foundations. The focus is on the ability to vary kernel shapes and locations in subsequent layers.
 </p>
+<h2>
+Variation Examples:
+</h2>
+<h3>
+  Usual cross-correlation:
+</h3>
 <p align="center">
-  <img width="350" src="./cross_corr.gif">
+  <img width="1000" src="./cross_corr.gif">
+</p>
+<h2>
+  <h3>
+  "retinaMix" cross-correlation:
+</h3>
+<p align="center">
+  <img width="1000" src="./cross_corr_nonret.gif">
 </p>
 <h2>
 Installation:
